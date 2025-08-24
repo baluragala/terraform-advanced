@@ -2,8 +2,8 @@
 resource "google_compute_network" "vpc" {
   name                    = "prismmart-vpc-${var.region}-${var.environment}"
   auto_create_subnetworks = false
-  routing_mode           = "REGIONAL"
-  
+  routing_mode            = "REGIONAL"
+
   project = var.project_id
 }
 
@@ -13,7 +13,7 @@ resource "google_compute_subnetwork" "public" {
   ip_cidr_range = var.public_subnet_cidr
   region        = var.region
   network       = google_compute_network.vpc.id
-  
+
   project = var.project_id
 }
 
@@ -23,10 +23,10 @@ resource "google_compute_subnetwork" "private" {
   ip_cidr_range = var.private_subnet_cidr
   region        = var.region
   network       = google_compute_network.vpc.id
-  
+
   # Enable private Google access for instances without external IPs
   private_ip_google_access = true
-  
+
   project = var.project_id
 }
 
@@ -35,20 +35,20 @@ resource "google_compute_router" "router" {
   name    = "prismmart-router-${var.region}-${var.environment}"
   region  = var.region
   network = google_compute_network.vpc.id
-  
+
   project = var.project_id
 }
 
 # Cloud NAT for private subnet internet access
 resource "google_compute_router_nat" "nat" {
   name                               = "prismmart-nat-${var.region}-${var.environment}"
-  router                            = google_compute_router.router.name
-  region                            = var.region
-  nat_ip_allocate_option            = "AUTO_ONLY"
+  router                             = google_compute_router.router.name
+  region                             = var.region
+  nat_ip_allocate_option             = "AUTO_ONLY"
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
-  
+
   project = var.project_id
-  
+
   log_config {
     enable = true
     filter = "ERRORS_ONLY"
@@ -59,15 +59,15 @@ resource "google_compute_router_nat" "nat" {
 resource "google_compute_firewall" "allow_http_https" {
   name    = "prismmart-allow-http-https-${var.region}-${var.environment}"
   network = google_compute_network.vpc.name
-  
+
   allow {
     protocol = "tcp"
     ports    = var.allowed_ports
   }
-  
+
   source_ranges = ["0.0.0.0/0"]
   target_tags   = ["web-server"]
-  
+
   project = var.project_id
 }
 
@@ -75,15 +75,15 @@ resource "google_compute_firewall" "allow_http_https" {
 resource "google_compute_firewall" "allow_ssh" {
   name    = "prismmart-allow-ssh-${var.region}-${var.environment}"
   network = google_compute_network.vpc.name
-  
+
   allow {
     protocol = "tcp"
     ports    = ["22"]
   }
-  
+
   source_ranges = ["0.0.0.0/0"]
   target_tags   = ["web-server"]
-  
+
   project = var.project_id
 }
 
@@ -91,16 +91,16 @@ resource "google_compute_firewall" "allow_ssh" {
 resource "google_compute_firewall" "allow_health_check" {
   name    = "prismmart-allow-health-check-${var.region}-${var.environment}"
   network = google_compute_network.vpc.name
-  
+
   allow {
     protocol = "tcp"
     ports    = ["80", "443"]
   }
-  
+
   # Google Cloud health check IP ranges
   source_ranges = ["130.211.0.0/22", "35.191.0.0/16"]
   target_tags   = ["web-server"]
-  
+
   project = var.project_id
 }
 
@@ -109,7 +109,7 @@ resource "google_compute_instance_template" "web_server" {
   name_prefix  = "prismmart-web-${var.region}-${var.environment}-"
   machine_type = var.instance_type
   region       = var.region
-  
+
   disk {
     source_image = var.boot_image
     auto_delete  = true
@@ -117,22 +117,22 @@ resource "google_compute_instance_template" "web_server" {
     disk_size_gb = var.disk_size
     disk_type    = "pd-standard"
   }
-  
+
   network_interface {
     subnetwork = google_compute_subnetwork.public.id
-    
+
     access_config {
       # Ephemeral external IP
     }
   }
-  
+
   tags = ["web-server"]
-  
+
   metadata = {
     environment = var.environment
     region      = var.region
   }
-  
+
   metadata_startup_script = <<-EOF
     #!/bin/bash
     apt-get update
@@ -170,9 +170,9 @@ HTML
     systemctl enable nginx
     systemctl start nginx
   EOF
-  
+
   project = var.project_id
-  
+
   lifecycle {
     create_before_destroy = true
   }
@@ -183,15 +183,17 @@ HTML
 # Health check for the managed instance group
 resource "google_compute_health_check" "web_server" {
   name = "prismmart-health-check-${var.region}-${var.environment}"
-  
+
   timeout_sec        = 5
   check_interval_sec = 10
-  
+
   http_health_check {
-    port = "80"
-    path = "/"
+    port         = "80"
+    request_path = "/"
+    proxy_header = "NONE"
+    response     = ""
   }
-  
+
   project = var.project_id
 }
 
@@ -200,77 +202,122 @@ resource "google_compute_region_autoscaler" "web_server" {
   name   = "prismmart-autoscaler-${var.region}-${var.environment}"
   region = var.region
   target = google_compute_region_instance_group_manager.web_server.id
-  
+
   autoscaling_policy {
     max_replicas    = 10
     min_replicas    = var.instance_count
     cooldown_period = 60
-    
+
     cpu_utilization {
       target = 0.7
     }
   }
-  
+
   project = var.project_id
 }
 
-# Regional Load Balancer
+# Regional Load Balancer - External IP
 resource "google_compute_address" "lb_ip" {
   name   = "prismmart-lb-ip-${var.region}-${var.environment}"
   region = var.region
-  
+
   project = var.project_id
 }
 
+# Regional Backend Service
+resource "google_compute_region_backend_service" "web_server" {
+  name   = "prismmart-backend-service-${var.region}-${var.environment}"
+  region = var.region
+
+  protocol    = "HTTP"
+  port_name   = "http"
+  timeout_sec = 30
+
+  backend {
+    group = google_compute_region_instance_group_manager.web_server.instance_group
+  }
+
+  health_checks = [google_compute_region_health_check.web_server.id]
+
+  project = var.project_id
+}
+
+# Regional Health Check (different from the MIG health check)
+resource "google_compute_region_health_check" "web_server" {
+  name   = "prismmart-lb-health-check-${var.region}-${var.environment}"
+  region = var.region
+
+  timeout_sec        = 5
+  check_interval_sec = 10
+
+  http_health_check {
+    port         = "80"
+    request_path = "/"
+    proxy_header = "NONE"
+  }
+
+  project = var.project_id
+}
+
+# Regional URL Map
+resource "google_compute_region_url_map" "web_server" {
+  name   = "prismmart-url-map-${var.region}-${var.environment}"
+  region = var.region
+
+  default_service = google_compute_region_backend_service.web_server.id
+
+  project = var.project_id
+}
+
+# Regional HTTP Proxy
+resource "google_compute_region_target_http_proxy" "web_server" {
+  name   = "prismmart-http-proxy-${var.region}-${var.environment}"
+  region = var.region
+
+  url_map = google_compute_region_url_map.web_server.id
+
+  project = var.project_id
+}
+
+# Regional Forwarding Rule
 resource "google_compute_forwarding_rule" "web_server" {
   name   = "prismmart-forwarding-rule-${var.region}-${var.environment}"
   region = var.region
-  
+
   ip_address = google_compute_address.lb_ip.address
   port_range = "80"
-  target     = google_compute_region_target_pool.web_server.id
-  
+  target     = google_compute_region_target_http_proxy.web_server.id
+
   project = var.project_id
 }
 
-resource "google_compute_region_target_pool" "web_server" {
-  name   = "prismmart-target-pool-${var.region}-${var.environment}"
-  region = var.region
-  
-  health_checks = [google_compute_health_check.web_server.id]
-  
-  project = var.project_id
-}
-
-# Update the managed instance group to include target pool
+# Managed Instance Group
 resource "google_compute_region_instance_group_manager" "web_server" {
   name   = "prismmart-mig-${var.region}-${var.environment}"
   region = var.region
-  
+
   base_instance_name = "prismmart-web-${var.region}-${var.environment}"
   target_size        = var.instance_count
-  
+
   version {
     instance_template = google_compute_instance_template.web_server.id
   }
-  
+
   named_port {
     name = "http"
     port = 80
   }
-  
+
   named_port {
     name = "https"
     port = 443
   }
-  
+
   auto_healing_policies {
     health_check      = google_compute_health_check.web_server.id
     initial_delay_sec = 300
   }
-  
-  target_pools = [google_compute_region_target_pool.web_server.id]
-  
+
   project = var.project_id
 }
 
@@ -278,23 +325,23 @@ resource "google_compute_region_instance_group_manager" "web_server" {
 resource "google_storage_bucket" "assets" {
   name     = "prismmart-assets-${var.region}-${var.environment}-${random_id.bucket_suffix.hex}"
   location = var.region
-  
+
   # Prevent accidental deletion
   lifecycle {
     prevent_destroy = true
   }
-  
+
   versioning {
     enabled = true
   }
-  
+
   cors {
     origin          = ["*"]
     method          = ["GET", "HEAD", "PUT", "POST", "DELETE"]
     response_header = ["*"]
     max_age_seconds = 3600
   }
-  
+
   project = var.project_id
 }
 

@@ -30,3 +30,18 @@
 - Reliability
 - Security
 - Locking & Consistency
+
+## Steps to configure backend
+
+- clone the repo
+- in GCP account create bucket
+- open terraform.tf file, uncomment backed configuration
+
+```
+    backend "gcs" {
+        bucket = "tf-state-manager-xxj2"
+        prefix = "prismmart/terraform.tfstate"
+    }
+```
+
+- run `terraform init`

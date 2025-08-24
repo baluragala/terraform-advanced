@@ -58,6 +58,16 @@ output "health_check_id" {
   value       = google_compute_health_check.web_server.id
 }
 
+output "backend_service_id" {
+  description = "ID of the backend service"
+  value       = google_compute_region_backend_service.web_server.id
+}
+
+output "url_map_id" {
+  description = "ID of the URL map"
+  value       = google_compute_region_url_map.web_server.id
+}
+
 output "managed_instance_group_id" {
   description = "ID of the managed instance group"
   value       = google_compute_region_instance_group_manager.web_server.id
