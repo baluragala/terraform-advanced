@@ -5,6 +5,7 @@ This Terraform configuration deploys a highly available, multi-region infrastruc
 ## 🏗️ Architecture Overview
 
 The infrastructure includes:
+
 - **VPC Networks**: Dedicated VPC with public and private subnets in each region
 - **Compute Engine**: Auto-scaling web servers with regional load balancing
 - **Cloud NAT**: Internet access for private subnet resources
@@ -536,31 +537,32 @@ terraform apply -var-file=production.tfvars -var project_id=$PROJECT_ID
 
 ### Essential Commands Summary
 
-| Operation | Command |
-|-----------|---------|
-| **Setup** | `make setup` |
-| **Validate** | `./validate.sh` |
-| **Deploy Staging** | `./deploy.sh staging apply` |
-| **Deploy Production** | `./deploy.sh production apply` |
-| **Plan Changes** | `./deploy.sh staging plan` |
-| **View Outputs** | `./deploy.sh staging output` |
-| **Destroy Staging** | `./deploy.sh staging destroy` |
+| Operation              | Command                          |
+| ---------------------- | -------------------------------- |
+| **Setup**              | `make setup`                     |
+| **Validate**           | `./validate.sh`                  |
+| **Deploy Staging**     | `./deploy.sh staging apply`      |
+| **Deploy Production**  | `./deploy.sh production apply`   |
+| **Plan Changes**       | `./deploy.sh staging plan`       |
+| **View Outputs**       | `./deploy.sh staging output`     |
+| **Destroy Staging**    | `./deploy.sh staging destroy`    |
 | **Destroy Production** | `./deploy.sh production destroy` |
 
 ### File Locations
 
-| File | Purpose |
-|------|---------|
-| `terraform.tfvars` | Your custom configuration |
-| `staging.tfvars` | Staging environment settings |
+| File                | Purpose                         |
+| ------------------- | ------------------------------- |
+| `terraform.tfvars`  | Your custom configuration       |
+| `staging.tfvars`    | Staging environment settings    |
 | `production.tfvars` | Production environment settings |
-| `FIXES.md` | Recent configuration fixes |
-| `deploy.sh` | Deployment automation script |
-| `Makefile` | Build automation |
+| `FIXES.md`          | Recent configuration fixes      |
+| `deploy.sh`         | Deployment automation script    |
+| `Makefile`          | Build automation                |
 
 ## 📞 Support
 
 For issues and questions:
+
 - Check the troubleshooting section above
 - Review `FIXES.md` for recent configuration fixes
 - Consult Terraform and GCP documentation
