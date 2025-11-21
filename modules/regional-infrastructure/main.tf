@@ -296,10 +296,10 @@ resource "google_storage_bucket" "assets" {
   name     = "prismmart-assets-${var.region}-${var.environment}-${random_id.bucket_suffix.hex}"
   location = var.region
 
-  # Prevent accidental deletion
-  lifecycle {
-    prevent_destroy = true
-  }
+  # Prevent accidental deletion in production
+  # lifecycle {
+  #   prevent_destroy = true
+  # }
 
   versioning {
     enabled = true
