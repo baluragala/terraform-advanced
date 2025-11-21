@@ -228,17 +228,18 @@ resource "google_compute_address" "lb_ip" {
 resource "google_compute_region_backend_service" "web_server" {
   name   = "prismmart-backend-service-${var.region}-${var.environment}"
   region = var.region
-
-  protocol    = "HTTP"
-  port_name   = "http"
-  timeout_sec = 30
-
+  
+  load_balancing_scheme = "EXTERNAL"
+  protocol              = "HTTP"
+  port_name             = "http"
+  timeout_sec           = 30
+  
   backend {
     group = google_compute_region_instance_group_manager.web_server.instance_group
   }
-
+  
   health_checks = [google_compute_region_health_check.web_server.id]
-
+  
   project = var.project_id
 }
 
