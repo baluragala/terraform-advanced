@@ -235,7 +235,8 @@ resource "google_compute_region_backend_service" "web_server" {
   timeout_sec           = 30
   
   backend {
-    group = google_compute_region_instance_group_manager.web_server.instance_group
+    group          = google_compute_region_instance_group_manager.web_server.instance_group
+    balancing_mode = "UTILIZATION"
   }
   
   health_checks = [google_compute_region_health_check.web_server.id]
