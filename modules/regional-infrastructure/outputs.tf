@@ -58,14 +58,14 @@ output "health_check_id" {
   value       = google_compute_health_check.web_server.id
 }
 
-output "backend_service_id" {
-  description = "ID of the backend service"
-  value       = google_compute_region_backend_service.web_server.id
+output "target_pool_id" {
+  description = "ID of the target pool"
+  value       = google_compute_target_pool.web_server.id
 }
 
-output "url_map_id" {
-  description = "ID of the URL map"
-  value       = google_compute_region_url_map.web_server.id
+output "pool_health_check_id" {
+  description = "ID of the pool health check"
+  value       = google_compute_http_health_check.web_server_pool.id
 }
 
 output "managed_instance_group_id" {

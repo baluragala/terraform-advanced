@@ -224,71 +224,37 @@ resource "google_compute_address" "lb_ip" {
   project = var.project_id
 }
 
-# Regional Backend Service
-resource "google_compute_region_backend_service" "web_server" {
-  name   = "prismmart-backend-service-${var.region}-${var.environment}"
+# Target Pool for Network Load Balancer
+resource "google_compute_target_pool" "web_server" {
+  name   = "prismmart-target-pool-${var.region}-${var.environment}"
   region = var.region
-  
-  load_balancing_scheme = "EXTERNAL"
-  protocol              = "HTTP"
-  port_name             = "http"
-  timeout_sec           = 30
-  
-  backend {
-    group          = google_compute_region_instance_group_manager.web_server.instance_group
-    balancing_mode = "UTILIZATION"
-  }
-  
-  health_checks = [google_compute_region_health_check.web_server.id]
-  
+
+  health_checks = [google_compute_http_health_check.web_server_pool.id]
+
   project = var.project_id
 }
 
-# Regional Health Check (different from the MIG health check)
-resource "google_compute_region_health_check" "web_server" {
-  name   = "prismmart-lb-health-check-${var.region}-${var.environment}"
-  region = var.region
+# HTTP Health Check for target pool
+resource "google_compute_http_health_check" "web_server_pool" {
+  name = "prismmart-pool-health-check-${var.region}-${var.environment}"
 
   timeout_sec        = 5
   check_interval_sec = 10
 
-  http_health_check {
-    port         = "80"
-    request_path = "/"
-    proxy_header = "NONE"
-  }
+  port         = 80
+  request_path = "/"
 
   project = var.project_id
 }
 
-# Regional URL Map
-resource "google_compute_region_url_map" "web_server" {
-  name   = "prismmart-url-map-${var.region}-${var.environment}"
-  region = var.region
-
-  default_service = google_compute_region_backend_service.web_server.id
-
-  project = var.project_id
-}
-
-# Regional HTTP Proxy
-resource "google_compute_region_target_http_proxy" "web_server" {
-  name   = "prismmart-http-proxy-${var.region}-${var.environment}"
-  region = var.region
-
-  url_map = google_compute_region_url_map.web_server.id
-
-  project = var.project_id
-}
-
-# Regional Forwarding Rule
+# Regional Forwarding Rule for Network Load Balancer
 resource "google_compute_forwarding_rule" "web_server" {
   name   = "prismmart-forwarding-rule-${var.region}-${var.environment}"
   region = var.region
 
   ip_address = google_compute_address.lb_ip.address
   port_range = "80"
-  target     = google_compute_region_target_http_proxy.web_server.id
+  target     = google_compute_target_pool.web_server.id
 
   project = var.project_id
 }
@@ -297,29 +263,31 @@ resource "google_compute_forwarding_rule" "web_server" {
 resource "google_compute_region_instance_group_manager" "web_server" {
   name   = "prismmart-mig-${var.region}-${var.environment}"
   region = var.region
-
+  
   base_instance_name = "prismmart-web-${var.region}-${var.environment}"
   target_size        = var.instance_count
-
+  
   version {
     instance_template = google_compute_instance_template.web_server.id
   }
-
+  
   named_port {
     name = "http"
     port = 80
   }
-
+  
   named_port {
     name = "https"
     port = 443
   }
-
+  
   auto_healing_policies {
     health_check      = google_compute_health_check.web_server.id
     initial_delay_sec = 300
   }
-
+  
+  target_pools = [google_compute_target_pool.web_server.id]
+  
   project = var.project_id
 }
 
