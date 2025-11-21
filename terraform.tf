@@ -13,11 +13,12 @@ terraform {
   }
 
   # Backend configuration for state management
+  # Using local state storage (default)
   # Uncomment and configure for remote state storage
-  backend "gcs" {
-    bucket = "tf-state-manager-xxj2"
-    prefix = "prismmart/terraform.tfstate"
-  }
+  # backend "gcs" {
+  #   bucket = "tf-state-manager-xxj2"
+  #   prefix = "prismmart/terraform.tfstate"
+  # }
 }
 
 # Default provider configuration
